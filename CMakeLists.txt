@@ -108,6 +108,13 @@ target_include_directories(test_crossoverms PRIVATE Source/ Tests/)
 target_compile_features(test_crossoverms PRIVATE cxx_std_20)
 add_test(NAME CrossoverMS COMMAND test_crossoverms)
 
+add_executable(test_allpassfilter
+    Tests/test_allpassfilter.cpp
+)
+target_include_directories(test_allpassfilter PRIVATE Source/ Tests/)
+target_compile_features(test_allpassfilter PRIVATE cxx_std_20)
+add_test(NAME AllpassFilter COMMAND test_allpassfilter)
+
 # ── Install rules ─────────────────────────────────────────────────────────────
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
