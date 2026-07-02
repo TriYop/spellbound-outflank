@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "DSP/CrossoverMS.h"
 
 class OutflankAudioProcessorEditor;
 
@@ -37,6 +38,8 @@ public:
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    CrossoverMS crossover_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OutflankAudioProcessor)
 };

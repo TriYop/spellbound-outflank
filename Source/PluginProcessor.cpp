@@ -6,6 +6,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout OutflankAudioProcessor::crea
 {
     using namespace juce;
     std::vector<std::unique_ptr<RangedAudioParameter>> params;
+
+    params.push_back (std::make_unique<AudioParameterFloat> ("frequency", "Frequency",
+        NormalisableRange<float> (40.f, 2000.f, 1.f, 0.3f), 250.f,
+        AudioParameterFloatAttributes{}.withLabel ("Hz")));
+
+    params.push_back (std::make_unique<AudioParameterFloat> ("q", "Q",
+        NormalisableRange<float> (0.3f, 4.0f, 0.01f), 0.707f));
+
+    params.push_back (std::make_unique<AudioParameterFloat> ("rejection", "Rejection",
+        NormalisableRange<float> (0.f, 100.f, 0.1f), 0.f,
+        AudioParameterFloatAttributes{}.withLabel ("%")));
+
     return { params.begin(), params.end() };
 }
 
@@ -33,7 +45,10 @@ const juce::String OutflankAudioProcessor::getProgramName (int) { return {}; }
 void OutflankAudioProcessor::changeProgramName (int, const juce::String&) {}
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
-void OutflankAudioProcessor::prepareToPlay (double, int) {}
+void OutflankAudioProcessor::prepareToPlay (double, int)
+{
+    crossover_.reset();
+}
 void OutflankAudioProcessor::releaseResources() {}
 
 bool OutflankAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -44,10 +59,16 @@ bool OutflankAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts)
 }
 
 // ── processBlock ──────────────────────────────────────────────────────────────
-void OutflankAudioProcessor::processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&)
+void OutflankAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
-    // Passthrough for now — DSP wired in a later task.
+
+    const float freq = apvts.getRawParameterValue ("frequency")->load (std::memory_order_relaxed);
+    const float q    = apvts.getRawParameterValue ("q")->load (std::memory_order_relaxed);
+    const float rej  = apvts.getRawParameterValue ("rejection")->load (std::memory_order_relaxed) * 0.01f;
+
+    crossover_.process (buffer.getWritePointer (0), buffer.getWritePointer (1),
+                         buffer.getNumSamples(), freq, q, rej, getSampleRate());
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
