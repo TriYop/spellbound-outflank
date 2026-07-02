@@ -45,26 +45,39 @@ int main()
     // Each branch stays close to unity magnitude at all frequencies -- all-pass cascades
     // preserve magnitude exactly; this guards against a transcription error turning a
     // stage into something other than a pure all-pass.
+    // Note: RMS-based measurement is used instead of peak-picking, because at high
+    // frequencies relative to sample rate (e.g., 18kHz at 48kHz = 2.67 samples/cycle),
+    // peak-picking systematically misses the true crest due to sampling, giving false
+    // negatives. The analytic transfer function confirms |H| = 1.0 exactly for all-pass
+    // cascades; RMS-based measurement correctly reflects this.
     {
         const double sampleRate = 48000.0;
         for (double freq : { 50.0, 500.0, 5000.0, 18000.0 })
         {
             QuadraturePair pair;
             pair.prepare (sampleRate);
-            float peakA = 0.f, peakB = 0.f;
-            const int n = static_cast<int> (sampleRate * 0.2);
+
+            const int settleSamples  = static_cast<int> (sampleRate * 0.1);
+            const int measureSamples = static_cast<int> (sampleRate * 0.1);
+            double sumSqA = 0.0, sumSqB = 0.0;
+
+            const int n = settleSamples + measureSamples;
             for (int i = 0; i < n; ++i)
             {
                 const float in = static_cast<float> (std::sin (2.0 * kPi * freq * i / sampleRate));
                 const auto out = pair.process (in);
-                if (i > n / 2)
+                if (i >= settleSamples)
                 {
-                    peakA = std::max (peakA, std::abs (out.a));
-                    peakB = std::max (peakB, std::abs (out.b));
+                    sumSqA += static_cast<double> (out.a) * static_cast<double> (out.a);
+                    sumSqB += static_cast<double> (out.b) * static_cast<double> (out.b);
                 }
             }
-            CHECK_MSG (peakA > 0.95f && peakA < 1.05f, "branch A should stay near unity magnitude");
-            CHECK_MSG (peakB > 0.95f && peakB < 1.05f, "branch B should stay near unity magnitude");
+
+            const double amplitudeA = std::sqrt (sumSqA / measureSamples) * std::sqrt (2.0);
+            const double amplitudeB = std::sqrt (sumSqB / measureSamples) * std::sqrt (2.0);
+
+            CHECK_MSG (amplitudeA > 0.99 && amplitudeA < 1.01, "branch A should stay near unity magnitude (RMS-based)");
+            CHECK_MSG (amplitudeB > 0.99 && amplitudeB < 1.01, "branch B should stay near unity magnitude (RMS-based)");
         }
     }
 
