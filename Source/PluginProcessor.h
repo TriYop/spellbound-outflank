@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "DSP/CrossoverMS.h"
+#include "PresetManager.h"
 
 class OutflankAudioProcessorEditor;
 
@@ -36,10 +37,13 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    PresetManager* getPresetManager() noexcept { return presetManager_.get(); }
+
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     CrossoverMS crossover_;
+    std::unique_ptr<PresetManager> presetManager_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OutflankAudioProcessor)
 };

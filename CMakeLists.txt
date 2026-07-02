@@ -24,6 +24,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(clap-juce-extensions)
 
+# Embed factory presets as binary data
+file(GLOB FACTORY_PRESET_FILES "Source/Presets/Factory/*.xml")
+juce_add_binary_data(Outflank_BinaryData
+    HEADER_NAME BinaryData.h
+    NAMESPACE   Outflank_BinaryData
+    SOURCES     ${FACTORY_PRESET_FILES}
+)
+
 set(OUTFLANK_FORMATS VST3 Standalone)
 if(APPLE)
     list(APPEND OUTFLANK_FORMATS AU)
@@ -48,6 +56,7 @@ target_sources(Outflank PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/DSP/CrossoverMS.cpp
+    Source/PresetManager.cpp
 )
 
 target_compile_definitions(Outflank PUBLIC
@@ -62,6 +71,7 @@ target_compile_features(Outflank PUBLIC cxx_std_20)
 
 target_link_libraries(Outflank
     PRIVATE
+        Outflank_BinaryData
         juce::juce_audio_utils
         juce::juce_audio_plugin_client
         juce::juce_dsp

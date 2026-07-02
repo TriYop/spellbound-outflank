@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OutflankState>
+  <PARAM id="frequency" value="180.0"/>
+  <PARAM id="q" value="0.707"/>
+  <PARAM id="rejection" value="20.0"/>
+</OutflankState>

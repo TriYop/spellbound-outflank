@@ -26,7 +26,8 @@ OutflankAudioProcessor::OutflankAudioProcessor()
     : AudioProcessor (BusesProperties()
           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "OutflankState", createParameterLayout())
+      apvts (*this, nullptr, "OutflankState", createParameterLayout()),
+      presetManager_ (std::make_unique<PresetManager> (apvts))
 {}
 
 OutflankAudioProcessor::~OutflankAudioProcessor() = default;
@@ -38,11 +39,33 @@ bool OutflankAudioProcessor::producesMidi() const { return false; }
 bool OutflankAudioProcessor::isMidiEffect() const { return false; }
 double OutflankAudioProcessor::getTailLengthSeconds() const { return 0.0; }
 
-int  OutflankAudioProcessor::getNumPrograms()              { return 1; }
-int  OutflankAudioProcessor::getCurrentProgram()           { return 0; }
-void OutflankAudioProcessor::setCurrentProgram (int)       {}
-const juce::String OutflankAudioProcessor::getProgramName (int) { return {}; }
-void OutflankAudioProcessor::changeProgramName (int, const juce::String&) {}
+int OutflankAudioProcessor::getNumPrograms()
+{
+    return static_cast<int> (presetManager_->getPresetList().size());
+}
+
+int OutflankAudioProcessor::getCurrentProgram()
+{
+    return presetManager_->getCurrentPresetIndex();
+}
+
+void OutflankAudioProcessor::setCurrentProgram (int index)
+{
+    presetManager_->loadPreset (index);
+}
+
+const juce::String OutflankAudioProcessor::getProgramName (int index)
+{
+    auto presets = presetManager_->getPresetList();
+    if (index >= 0 && index < static_cast<int> (presets.size()))
+        return presets[static_cast<size_t> (index)].name;
+    return {};
+}
+
+void OutflankAudioProcessor::changeProgramName (int index, const juce::String& newName)
+{
+    presetManager_->renamePreset (index, newName);
+}
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 void OutflankAudioProcessor::prepareToPlay (double, int)
