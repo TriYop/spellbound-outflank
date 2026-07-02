@@ -283,6 +283,82 @@ with:
 
 Also add `#include "../Source/DSP/StateVariableFilter.h"` to the top of `Tests/test_crossoverms.cpp` (alongside the existing `#include "../Source/DSP/CrossoverMS.h"`), needed by the new mono-sum invariant test.
 
+**Also fix the pre-existing "mono input stays mono" test.** Its title claims mono input stays
+mono "for any settings," which was true under the old subtractive design (Side only ever held
+`sHigh`, independent of `rejection`/`mHigh`) but is no longer universally true: the whole point
+of this feature is that a mono input's *highs* now widen when `rejection > 0`, by design. The
+test's actual signal (100Hz vs. a 250Hz crossover, only ~1.3 octaves apart) sees substantial
+`mHigh` leakage at `rejection=0.5`, which now measurably redirects into Side (verified with a
+Python reference simulation of this exact algorithm: `peak|L-R| ≈ 0.58` at those settings — not
+noise, the widening working as intended). Split it into two tests that each state a true
+invariant: passthrough stays mono at `rejection=0` regardless of frequency, and deep bass
+(many octaves below the crossover, using this file's existing far-below-crossover convention)
+stays mono-ish regardless of `rejection`, since forced-mono bass is unconditional and unrelated
+to the highs-widening feature. Replace:
+
+```cpp
+    // Mono input stays mono: L_out == R_out at every sample, for any settings.
+    {
+        CrossoverMS x;
+        const int n = 4800;
+        std::vector<float> left (n), right (n);
+        for (int i = 0; i < n; ++i)
+        {
+            const float s = static_cast<float> (std::sin (2.0 * kPi * 100.0 * i / kSampleRate));
+            left[i] = s; right[i] = s;
+        }
+        x.process (left.data(), right.data(), n, 250.f, 0.707f, 0.5f, kSampleRate);
+        bool allEqual = true;
+        for (int i = 0; i < n; ++i)
+            if (std::abs (left[i] - right[i]) > 1e-5f) { allEqual = false; break; }
+        CHECK_MSG (allEqual, "mono input must stay mono regardless of crossover settings");
+    }
+```
+
+with:
+
+```cpp
+    // Mono input stays mono at rejection=0: L_out == R_out at every sample, for any frequency.
+    // At rejection=0 nothing is redirected (mHighMoved is always 0), so this holds unconditionally.
+    {
+        CrossoverMS x;
+        const int n = 4800;
+        std::vector<float> left (n), right (n);
+        for (int i = 0; i < n; ++i)
+        {
+            const float s = static_cast<float> (std::sin (2.0 * kPi * 100.0 * i / kSampleRate));
+            left[i] = s; right[i] = s;
+        }
+        x.process (left.data(), right.data(), n, 250.f, 0.707f, 0.f, kSampleRate);
+        bool allEqual = true;
+        for (int i = 0; i < n; ++i)
+            if (std::abs (left[i] - right[i]) > 1e-5f) { allEqual = false; break; }
+        CHECK_MSG (allEqual, "mono input must stay mono at rejection=0, regardless of frequency");
+    }
+
+    // Mono bass content (far below the crossover) stays mono-ish even as rejection increases --
+    // forced-mono bass is unconditional and unrelated to the highs-widening feature. Uses this
+    // file's existing far-below-crossover convention (20Hz vs. a 5000Hz crossover, ~8 octaves
+    // apart). Threshold verified against a Python reference simulation of this exact algorithm
+    // at rejection=1 (worst case): peak|L-R| ~= 0.0109, so 0.02 leaves a comfortable margin.
+    {
+        CrossoverMS x;
+        const int n = 9600;
+        std::vector<float> left (n), right (n);
+        for (int i = 0; i < n; ++i)
+        {
+            const float s = static_cast<float> (std::sin (2.0 * kPi * 20.0 * i / kSampleRate));
+            left[i] = s; right[i] = s;
+        }
+        x.process (left.data(), right.data(), n, 5000.f, 0.707f, 1.f, kSampleRate);
+        float peakDiff = 0.f;
+        for (int i = 4800; i < n; ++i)
+            peakDiff = std::max (peakDiff, std::abs (left[i] - right[i]));
+        CHECK_MSG (peakDiff < 0.02f,
+                   "mono bass content far below the crossover should stay mono-ish even at rejection=1");
+    }
+```
+
 - [ ] **Step 2: Build and confirm the updated tests fail (RED) — the implementation hasn't changed yet**
 
 Run: `cmake --build build --target test_crossoverms && ./build/test_crossoverms`
