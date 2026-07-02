@@ -79,6 +79,16 @@ clap_juce_extensions_plugin(
     CLAP_PROCESS_EVENTS_RESOLUTION_SAMPLES 64
 )
 
+# ── Unit tests (no JUCE dependency) ──────────────────────────────────────────
+enable_testing()
+
+add_executable(test_statevariablefilter
+    Tests/test_statevariablefilter.cpp
+)
+target_include_directories(test_statevariablefilter PRIVATE Source/ Tests/)
+target_compile_features(test_statevariablefilter PRIVATE cxx_std_20)
+add_test(NAME StateVariableFilter COMMAND test_statevariablefilter)
+
 # ── Install rules ─────────────────────────────────────────────────────────────
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
