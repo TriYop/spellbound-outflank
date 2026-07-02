@@ -128,9 +128,11 @@ processBlock(buffer):
   harness rather than a third-party framework): pure-function tests on `StateVariableFilter`
   (DC settles near unity gain, a sine well above cutoff is strongly attenuated, higher Q
   resonates more at the cutoff) and on `CrossoverMS` (mono input stays mono at any setting; a
-  fully out-of-phase low-frequency signal is silenced, since forcing the low band mono removes
-  Side content with no Mid to replace it; mono highs pass through at `rejection=0` and are
-  removed at `rejection=100%`).
+  fully out-of-phase low-frequency signal, far below the crossover, is strongly attenuated,
+  since forcing the low band mono removes Side content with no Mid to replace it (the residual
+  is not near-zero close to the crossover itself, since the complementary high band leaks with
+  frequency-dependent phase, not just magnitude, near the transition); mono highs pass through
+  at `rejection=0` and are removed at `rejection=100%`).
 - **Manual verification via Standalone build**: sweep `frequency`/`q`/`rejection` by ear, confirm
   the low end collapses to mono (check with a mono-sum/correlation meter) and the highs widen as
   rejection increases.
