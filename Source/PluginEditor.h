@@ -14,8 +14,16 @@ public:
 
 private:
     void addKnob (juce::Slider& s, juce::Label& l, const char* name);
+    void updatePresetList();
+    void onPresetSelected();
+    void onSaveAsPressed();
+    void onDeletePressed();
 
     OutflankAudioProcessor& proc_;
+
+    juce::ComboBox   presetSelector_;
+    juce::TextButton saveAsButton_ { "SAVE AS" };
+    juce::TextButton deleteButton_ { "DELETE"  };
 
     juce::Slider frequencyKnob_, qKnob_, rejectionKnob_;
     juce::Label  frequencyLbl_,  qLbl_,  rejectionLbl_;
