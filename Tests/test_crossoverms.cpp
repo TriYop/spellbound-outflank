@@ -175,9 +175,18 @@ int main()
 
     // Regression test for the reported midrange cancellation bug: crossover=250Hz, Q=0.5 (low
     // Q), rejection=0.5 (the reported 30-70% zone), swept across the reported affected range
-    // (200Hz-8000Hz). The old single-all-pass design dropped as low as ~0.06 peak amplitude
-    // here (~-24dB); verified with the new quadrature-pair design the worst case across this
-    // sweep is ~0.688 (600Hz). Threshold set well below that with margin.
+    // (200Hz-8000Hz).
+    //
+    // IMPORTANT: this must check min(peakL, peakR), not max. For a mono input, channel energy
+    // is conserved between L and R (|L|^2 + |R|^2 is constant regardless of phase), so whichever
+    // channel collapses, the other one gets a compensating boost -- max(peakL, peakR) NEVER
+    // drops below ~0.707 even in the old design's total-cancellation case (verified: at the
+    // theoretical worst point, |L|->0 while |R|->1, or vice versa, so max stays near 1 while
+    // min goes to 0). A max-based check cannot detect this bug at all. Verified with min:
+    // the OLD single-all-pass design's worst case across this exact sweep is min~=0.028 (at
+    // 4000-8000Hz, matching the originally reported ~-24dB collapse); the NEW quadrature-pair
+    // design's worst case is min~=0.463 (at 200Hz). Threshold set well below the new design's
+    // worst case, comfortably above the old design's.
     {
         const float testFreqs[] = { 200.f, 400.f, 600.f, 900.f, 1200.f, 2000.f, 4000.f, 8000.f };
         for (float freq : testFreqs)
@@ -191,8 +200,8 @@ int main()
                 left[i] = s; right[i] = s;
             }
             x.process (left.data(), right.data(), n, 250.f, 0.5f, 0.5f, kSampleRate);
-            const float peak = std::max (peakAfter (left, 4800), peakAfter (right, 4800));
-            CHECK_MSG (peak > 0.5f,
+            const float minPeak = std::min (peakAfter (left, 4800), peakAfter (right, 4800));
+            CHECK_MSG (minPeak > 0.3f,
                        "midrange content should not collapse in volume at crossover=250Hz, Q=0.5, rejection=0.5");
         }
     }
