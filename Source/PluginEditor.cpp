@@ -60,7 +60,7 @@ void OutflankAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (kBg);
     g.setColour (kLabel);
     g.setFont (juce::FontOptions (16.f).withStyle ("Bold"));
-    g.drawText ("OUTFLANK", 0, 8, kW, 20, juce::Justification::centred);
+    g.drawText ("OUTFLANK", 0, 36, kW, 20, juce::Justification::centred);
 }
 
 void OutflankAudioProcessorEditor::resized()
@@ -69,7 +69,7 @@ void OutflankAudioProcessorEditor::resized()
 
     // Preset bar: selector | SAVE AS | DELETE
     auto row = b.removeFromTop (kPresetBarH);
-    presetSelector_.setBounds (row.removeFromLeft (160));
+    presetSelector_.setBounds (row.removeFromLeft (148));
     row.removeFromLeft (8);
     saveAsButton_.setBounds (row.removeFromLeft (70));
     row.removeFromLeft (8);
