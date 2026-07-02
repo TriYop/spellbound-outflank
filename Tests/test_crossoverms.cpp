@@ -1,6 +1,7 @@
 #include "test_runner.h"
 #include "../Source/DSP/CrossoverMS.h"
 #include "../Source/DSP/StateVariableFilter.h"
+#include "../Source/DSP/QuadraturePair.h"
 #include <cmath>
 #include <vector>
 #include <algorithm>
@@ -126,11 +127,14 @@ int main()
                    "mono highs redirected to Side at rejection=1 should widen (L and R diverge)");
     }
 
-    // Mono-sum invariant: (L+R) must equal 2*(mLow + (1-rejection)*mHigh) at every sample,
-    // independent of whatever the all-pass redirects into Side -- i.e. redirecting energy into
-    // Side can never leak into the mono downmix. Verified by independently replicating the Mid
-    // path's lowpass + rejection-weighted mix with a bare StateVariableFilter driven by the
-    // same input, and comparing against (L_out + R_out) from the real CrossoverMS.
+    // Mono-sum invariant: (L+R) must equal 2*(mLow + (1-rejection)*quadratureA(mHigh)) at
+    // every sample, independent of whatever enters Side -- i.e. redirecting energy into Side
+    // can never leak into the mono downmix. Verified by independently replicating the Mid
+    // path's lowpass + Chain-A filtering + rejection-weighted mix with bare StateVariableFilter
+    // and QuadraturePair instances driven by the same input, and comparing against
+    // (L_out + R_out) from the real CrossoverMS. (Using raw mHigh instead of the Chain-A
+    // filtered output here -- the old design's formula -- gives a large mismatch, ~0.6; this
+    // confirms the replica must track CrossoverMS's actual internal computation.)
     {
         const int n = 4800;
         std::vector<float> left (n), right (n);
@@ -148,6 +152,8 @@ int main()
 
         StateVariableFilter svfM;
         svfM.setParameters (400.f, 0.707f, kSampleRate);
+        QuadraturePair quadM;
+        quadM.prepare (kSampleRate);
         float smoothedRejection = 0.f;
         const float smoothCoeff = 1.0f - std::exp (-1.0f / (0.005f * static_cast<float> (kSampleRate)));
 
@@ -157,13 +163,38 @@ int main()
             const float m     = 0.5f * (origLeft[i] + origRight[i]);
             const float mLow  = svfM.processLowpass (m);
             const float mHigh = m - mLow;
+            const auto quad   = quadM.process (mHigh);
             smoothedRejection += (rejection - smoothedRejection) * smoothCoeff;
-            const float expectedMOut = mLow + (1.0f - smoothedRejection) * mHigh;
+            const float expectedMOut = mLow + (1.0f - smoothedRejection) * quad.a;
             const float actualSum    = left[i] + right[i];
             maxErr = std::max (maxErr, std::abs (actualSum - 2.0f * expectedMOut));
         }
         CHECK_MSG (maxErr < 1e-4f,
-                   "L+R must equal 2*(mLow + (1-rejection)*mHigh), independent of the all-pass redirection into Side");
+                   "L+R must equal 2*(mLow + (1-rejection)*quadratureA(mHigh)), independent of what enters Side");
+    }
+
+    // Regression test for the reported midrange cancellation bug: crossover=250Hz, Q=0.5 (low
+    // Q), rejection=0.5 (the reported 30-70% zone), swept across the reported affected range
+    // (200Hz-8000Hz). The old single-all-pass design dropped as low as ~0.06 peak amplitude
+    // here (~-24dB); verified with the new quadrature-pair design the worst case across this
+    // sweep is ~0.688 (600Hz). Threshold set well below that with margin.
+    {
+        const float testFreqs[] = { 200.f, 400.f, 600.f, 900.f, 1200.f, 2000.f, 4000.f, 8000.f };
+        for (float freq : testFreqs)
+        {
+            CrossoverMS x;
+            const int n = 9600;
+            std::vector<float> left (n), right (n);
+            for (int i = 0; i < n; ++i)
+            {
+                const float s = static_cast<float> (std::sin (2.0 * kPi * freq * i / kSampleRate));
+                left[i] = s; right[i] = s;
+            }
+            x.process (left.data(), right.data(), n, 250.f, 0.5f, 0.5f, kSampleRate);
+            const float peak = std::max (peakAfter (left, 4800), peakAfter (right, 4800));
+            CHECK_MSG (peak > 0.5f,
+                       "midrange content should not collapse in volume at crossover=250Hz, Q=0.5, rejection=0.5");
+        }
     }
 
     TEST_SUMMARY();

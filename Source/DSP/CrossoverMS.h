@@ -1,11 +1,12 @@
 #pragma once
 #include "StateVariableFilter.h"
-#include "AllpassFilter.h"
+#include "QuadraturePair.h"
 
 // Mid/Side-domain crossover. Forces everything below `frequencyHz` to mono
 // (the Side low band is discarded). Above it, `rejection01` redirects Mid content
-// into Side (via an all-pass phase rotation) rather than discarding it, so widening
-// the highs doesn't cost level.
+// into Side via a matched quadrature all-pass pair (not a single all-pass -- a single
+// all-pass caused destructive interference in the midrange, see QuadraturePair.h)
+// rather than discarding it, so widening the highs doesn't cost level.
 //
 // Plain C++, no JUCE dependency (see Tests/test_crossoverms.cpp). PluginProcessor
 // adapts this to juce::AudioBuffer<float> via raw channel pointers.
@@ -22,7 +23,7 @@ public:
 
 private:
     StateVariableFilter svfM_, svfS_;
-    AllpassFilter allpassM_;
+    QuadraturePair quadratureM_;
     float lastFrequencyHz_ = -1.0f;
     float lastQ_ = -1.0f;
     float smoothedRejection_ = 0.0f;
