@@ -1996,7 +1996,15 @@ void OutflankAudioProcessorEditor::onDeletePressed()
             if (result == 1 && safe != nullptr)
             {
                 auto* pm2 = safe->proc_.getPresetManager();
-                if (pm2 && pm2->deletePreset (idx)) safe->updatePresetList();
+                if (pm2 && pm2->deletePreset (idx))
+                {
+                    // deletePreset() only updates PresetManager's bookkeeping index when the
+                    // deleted preset was active — it does not reload APVTS. Without this call,
+                    // the combo box would show a fallback preset selected while the knobs/audio
+                    // still reflected the just-deleted preset's values.
+                    safe->proc_.setCurrentProgram (pm2->getCurrentPresetIndex());
+                    safe->updatePresetList();
+                }
             }
         }));
 }
