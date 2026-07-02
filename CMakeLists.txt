@@ -115,6 +115,13 @@ target_include_directories(test_allpassfilter PRIVATE Source/ Tests/)
 target_compile_features(test_allpassfilter PRIVATE cxx_std_20)
 add_test(NAME AllpassFilter COMMAND test_allpassfilter)
 
+add_executable(test_quadraturepair
+    Tests/test_quadraturepair.cpp
+)
+target_include_directories(test_quadraturepair PRIVATE Source/ Tests/)
+target_compile_features(test_quadraturepair PRIVATE cxx_std_20)
+add_test(NAME QuadraturePair COMMAND test_quadraturepair)
+
 # ── Install rules ─────────────────────────────────────────────────────────────
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
