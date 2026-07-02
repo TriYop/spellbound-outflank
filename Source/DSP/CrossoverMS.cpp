@@ -5,6 +5,7 @@ void CrossoverMS::reset() noexcept
 {
     svfM_.reset();
     svfS_.reset();
+    allpassM_.reset();
     smoothedRejection_ = 0.0f;
     lastFrequencyHz_ = -1.0f;
     lastQ_ = -1.0f;
@@ -18,6 +19,7 @@ void CrossoverMS::process (float* left, float* right, int numSamples,
     {
         svfM_.setParameters (frequencyHz, q, sampleRate);
         svfS_.setParameters (frequencyHz, q, sampleRate);
+        allpassM_.setParameters (frequencyHz, sampleRate);
         lastFrequencyHz_ = frequencyHz;
         lastQ_ = q;
     }
@@ -39,8 +41,12 @@ void CrossoverMS::process (float* left, float* right, int numSamples,
 
         smoothedRejection_ += (rejection01 - smoothedRejection_) * smoothCoeff;
 
-        const float mOut = mLow + (1.0f - smoothedRejection_) * mHigh;
-        const float sOut = sHigh;
+        const float mHighKept  = (1.0f - smoothedRejection_) * mHigh;
+        const float mHighMoved = smoothedRejection_ * mHigh;
+        const float sideAdd    = allpassM_.process (mHighMoved);
+
+        const float mOut = mLow + mHighKept;
+        const float sOut = sHigh + sideAdd;
 
         left[i]  = mOut + sOut;
         right[i] = mOut - sOut;
