@@ -47,6 +47,7 @@ juce_add_plugin(Outflank
 target_sources(Outflank PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/DSP/CrossoverMS.cpp
 )
 
 target_compile_definitions(Outflank PUBLIC
@@ -88,6 +89,14 @@ add_executable(test_statevariablefilter
 target_include_directories(test_statevariablefilter PRIVATE Source/ Tests/)
 target_compile_features(test_statevariablefilter PRIVATE cxx_std_20)
 add_test(NAME StateVariableFilter COMMAND test_statevariablefilter)
+
+add_executable(test_crossoverms
+    Tests/test_crossoverms.cpp
+    Source/DSP/CrossoverMS.cpp
+)
+target_include_directories(test_crossoverms PRIVATE Source/ Tests/)
+target_compile_features(test_crossoverms PRIVATE cxx_std_20)
+add_test(NAME CrossoverMS COMMAND test_crossoverms)
 
 # ── Install rules ─────────────────────────────────────────────────────────────
 if(NOT CMAKE_BUILD_TYPE)
