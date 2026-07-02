@@ -105,10 +105,17 @@ processBlock(buffer):
     L_out = M_out + S_out;  R_out = M_out - S_out   // M/S decode
 ```
 
-- `StateVariableFilter`: standard Chamberlin/Zavalishin topology-preserving 2-pole SVF producing
-  LP and HP outputs from one pass; coefficients (`g`, damping from `q`) recomputed via a
+- `StateVariableFilter`: standard Zavalishin topology-preserving 2-pole SVF producing a resonant
+  lowpass output; the high band is derived as the complementary `input - low` signal rather than a
+  true simultaneous HP output, which guarantees exact reconstruction (`low + high == input`) at
+  any Q instead of only at the nominal Q. Coefficients (`g`, damping from `q`) are recomputed via a
   `setParameters(freq, q, sampleRate)` call whenever a parameter changes, not per-sample — same
   "compute coefficients on change" convention used by the sibling DSP classes.
+- `StateVariableFilter` and `CrossoverMS` are plain C++ with no JUCE dependency, matching the one
+  established testing precedent in this workspace (Pugilist's `Source/Synth/*` voice classes,
+  exercised by bare `add_executable` unit tests using the shared `Tests/test_runner.h` `CHECK`
+  macro harness — not `doctest`, which is specific to the separate, non-JUCE MasterTweak project).
+  `PluginProcessor` adapts `CrossoverMS` to `juce::AudioBuffer<float>` via raw channel pointers.
 - `rejection` and the filter coefficients are smoothed with `juce::SmoothedValue<float>` to avoid
   zipper noise/clicks when knobs move — same click-prevention pattern as Bastos.
 - Mono compatibility is a first-class concern (it's the whole point of the plugin), so no
@@ -117,11 +124,13 @@ processBlock(buffer):
 
 ## Testing
 
-- **`doctest` target** (`Tests/`, following Codex's use of the same framework): pure-function
-  tests on `StateVariableFilter` coefficient math (e.g., at `rejection=0` and `q=0.707`, verify
-  `M_low + M_high ≈ M` — the filter reconstructs its input) and on `CrossoverMS` (e.g., feed a
-  pure mono signal and verify `S_out ≈ 0` at all settings since `S` was 0 to begin with; feed a
-  fully out-of-phase signal and verify the low band still collapses correctly).
+- **Unit test executables** (`Tests/`, following Pugilist's `test_runner.h` `CHECK`-macro
+  harness rather than a third-party framework): pure-function tests on `StateVariableFilter`
+  (DC settles near unity gain, a sine well above cutoff is strongly attenuated, higher Q
+  resonates more at the cutoff) and on `CrossoverMS` (mono input stays mono at any setting; a
+  fully out-of-phase low-frequency signal is silenced, since forcing the low band mono removes
+  Side content with no Mid to replace it; mono highs pass through at `rejection=0` and are
+  removed at `rejection=100%`).
 - **Manual verification via Standalone build**: sweep `frequency`/`q`/`rejection` by ear, confirm
   the low end collapses to mono (check with a mono-sum/correlation meter) and the highs widen as
   rejection increases.
