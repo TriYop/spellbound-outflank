@@ -13,7 +13,15 @@ public:
     void resized() override;
 
 private:
+    void addKnob (juce::Slider& s, juce::Label& l, const char* name);
+
     OutflankAudioProcessor& proc_;
+
+    juce::Slider frequencyKnob_, qKnob_, rejectionKnob_;
+    juce::Label  frequencyLbl_,  qLbl_,  rejectionLbl_;
+
+    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    std::unique_ptr<SliderAttachment> frequencyAtt_, qAtt_, rejectionAtt_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OutflankAudioProcessorEditor)
 };
