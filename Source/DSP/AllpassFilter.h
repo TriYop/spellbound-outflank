@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <algorithm>
 
 // First-order digital all-pass filter (Direct Form I). Flat magnitude response at every
 // frequency; phase shifts continuously from 0 degrees at DC to -180 degrees at Nyquist,
@@ -19,7 +20,18 @@ public:
 
     void setParameters (float frequencyHz, double sampleRate) noexcept
     {
-        const float g = std::tan (kPi * frequencyHz / static_cast<float> (sampleRate));
+        // Clamp to just under Nyquist before prewarping. Without this, a
+        // corner frequency at or beyond the current sample rate's Nyquist
+        // wraps through tan()'s pi-periodicity and can land exactly on this
+        // filter's a_ = (1-g)/(1+g) pole (g == -1, i.e. frequencyHz/sampleRate
+        // landing on 0.75 mod 1) -- e.g. QuadraturePair's fixed 22kHz corner
+        // at an 8kHz sample rate gives ratio 2.75, g = tan(2.75*pi) == -1.0
+        // exactly, dividing by zero. Caught by clap-validator's
+        // process-varying-sample-rates test; see
+        // https://github.com/TriYop/spellbound-outflank/issues/1.
+        const float sampleRateF = static_cast<float> (sampleRate);
+        const float safeFrequencyHz = std::min (frequencyHz, 0.499f * sampleRateF);
+        const float g = std::tan (kPi * safeFrequencyHz / sampleRateF);
         a_ = (1.0f - g) / (1.0f + g);
     }
 
