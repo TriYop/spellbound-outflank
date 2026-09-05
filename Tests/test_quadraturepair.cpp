@@ -2,6 +2,7 @@
 #include "../Source/DSP/QuadraturePair.h"
 #include <cmath>
 #include <algorithm>
+#include <random>
 
 static constexpr double kPi = 3.14159265358979323846;
 
@@ -101,6 +102,40 @@ int main()
                 CHECK_MSG (std::abs (diff - 90.0) < 35.0,
                            "phase difference between branch A and B should stay near 90 degrees");
             }
+        }
+    }
+
+    // Regression test for the Nyquist-clamp fix (see issue #1): before the
+    // fix, AllpassFilter::setParameters had no bound on the
+    // frequencyHz/sampleRate ratio, and QuadraturePair's fixed corner
+    // frequencies (up to ~22kHz, only valid across 44.1kHz-192kHz per
+    // QuadraturePair.h's own header comment) could land squarely on that
+    // filter's a=(1-g)/(1+g) pole at low sample rates -- e.g. clap-validator
+    // caught an exact -inf at sample index 6 with an 8kHz sample rate.
+    // Sweeps a wide range of sample rates, including several well below and
+    // one well above the design band, and asserts every output sample stays
+    // finite when fed noise (not just a single steady-state sinusoid).
+    {
+        std::minstd_rand rng (12345u);
+        std::uniform_real_distribution<float> dist (-1.0f, 1.0f);
+
+        for (double sampleRate : { 1000.0, 2500.0, 8000.0, 22050.0, 44100.0, 192000.0, 768000.0 })
+        {
+            QuadraturePair pair;
+            pair.prepare (sampleRate);
+
+            bool allFinite = true;
+            for (int i = 0; i < 500; ++i)
+            {
+                const float in = dist (rng);
+                const auto out = pair.process (in);
+                if (! std::isfinite (out.a) || ! std::isfinite (out.b))
+                {
+                    allFinite = false;
+                    break;
+                }
+            }
+            CHECK_MSG (allFinite, "QuadraturePair output should stay finite at every sample rate, including well below the design band");
         }
     }
 

@@ -64,6 +64,24 @@ int main()
                    "phase lag at the corner frequency should be about -90 degrees");
     }
 
+    // Regression test for the denormal-flush fix (see issue #2): same shape
+    // as StateVariableFilter's silence-decay test -- after real excitation
+    // then silence, output must reach EXACTLY 0.0f, not merely stay small.
+    // Without the fix, the exact float32 recurrence shows the state still
+    // sitting at -6e-45 (subnormal, not bit-exact zero) after 5000 silent
+    // samples.
+    {
+        AllpassFilter f;
+        f.setParameters (1000.f, kSampleRate);
+        for (int i = 0; i < 4800; ++i)
+            f.process (static_cast<float> (std::sin (2.0 * kPi * 1000.0 * i / kSampleRate)));
+
+        float out = 1.0f;
+        for (int i = 0; i < 5000; ++i)
+            out = f.process (0.0f);
+        CHECK_MSG (out == 0.0f, "AllpassFilter output should reach exactly 0.0f after enough silence (denormal flush engaged)");
+    }
+
     TEST_SUMMARY();
     return 0;
 }
