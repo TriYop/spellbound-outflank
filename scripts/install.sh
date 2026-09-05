@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Outflank plugins and standalone app.
+# Install Outflank plugins (VST3/CLAP/LV2). Outflank is an effect -- no standalone app.
 # Usage:
 #   ./install.sh           — install to user directories (no root needed)
 #   ./install.sh --system  — install system-wide to /usr/lib (requires sudo)
@@ -18,11 +18,11 @@ done
 if [[ $SYSTEM -eq 1 ]]; then
     VST3_DIR="/usr/lib/vst3"
     CLAP_DIR="/usr/lib/clap"
-    BIN_DIR="/usr/local/bin"
+    LV2_DIR="/usr/lib/lv2"
 else
     VST3_DIR="${HOME}/.vst3"
     CLAP_DIR="${HOME}/.clap"
-    BIN_DIR="${HOME}/.local/bin"
+    LV2_DIR="${HOME}/.lv2"
 fi
 
 echo "Installing Outflank..."
@@ -37,9 +37,9 @@ cp       "${SCRIPT_DIR}/CLAP/Outflank.clap" "${CLAP_DIR}/"
 chmod    755 "${CLAP_DIR}/Outflank.clap"
 echo "  CLAP  → ${CLAP_DIR}/Outflank.clap"
 
-mkdir -p "${BIN_DIR}"
-cp       "${SCRIPT_DIR}/bin/Outflank" "${BIN_DIR}/"
-chmod    755 "${BIN_DIR}/Outflank"
-echo "  App   → ${BIN_DIR}/Outflank"
+mkdir -p "${LV2_DIR}"
+rm -rf   "${LV2_DIR}/Outflank.lv2"
+cp -r    "${SCRIPT_DIR}/LV2/Outflank.lv2" "${LV2_DIR}/"
+echo "  LV2   → ${LV2_DIR}/Outflank.lv2"
 
 echo "Done."

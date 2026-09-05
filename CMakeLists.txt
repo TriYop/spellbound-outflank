@@ -7,90 +7,70 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 
-FetchContent_Declare(
-    JUCE
-    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-    GIT_TAG        8.0.13
+# DPF has no tagged releases -- downstream projects pin an exact commit SHA
+# on `main` instead. This is the same commit Hex/Pugilist pin.
+set(AUDIOPLUGINS_DPF_GIT_TAG "4238e1c7f0351bbe488d79f0899c540543ac7583" CACHE STRING "Pinned DPF commit")
+
+# PATCH_COMMAND (two patches, copied verbatim from Hex -- see each file for
+# the full explanation; neither reported upstream yet):
+#
+# 1. dpf-clap-state-chunked-read.patch -- PluginCLAP::stateLoad() can't tell
+#    a genuine embedded NUL terminator from simply running out of bytes at a
+#    chunk boundary, so a host that returns short reads from
+#    clap_istream_t::read() can lose every parameter on state load.
+# 2. dpf-clap-activate-latency.patch -- PluginCLAP::activate() never reports
+#    the plugin's initial latency. Outflank itself reports 0 latency always
+#    (DISTRHO_PLUGIN_WANT_LATENCY 0), but this patch fixes a real bug in the
+#    shared DPF checkout regardless, so it's applied unconditionally like
+#    every other DPF-based plugin in this workspace.
+#
+# CAVEAT: the patch step only runs on a *fresh* population of the source
+# dir -- delete build/_deps/dpf-* when you need to be sure the patches took
+# effect. cmake/apply_patch.cmake is idempotent (skips an already-applied
+# patch), so a re-run is harmless but not a substitute for a clean re-fetch.
+FetchContent_Declare(dpf
+    GIT_REPOSITORY https://github.com/DISTRHO/DPF.git
+    GIT_TAG        ${AUDIOPLUGINS_DPF_GIT_TAG}
     GIT_SHALLOW    TRUE
+    PATCH_COMMAND  ${CMAKE_COMMAND}
+                   -DPATCH_FILE=${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/dpf-clap-state-chunked-read.patch
+                   -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/apply_patch.cmake
+            COMMAND ${CMAKE_COMMAND}
+                   -DPATCH_FILE=${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/dpf-clap-activate-latency.patch
+                   -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/apply_patch.cmake
 )
-FetchContent_MakeAvailable(JUCE)
+FetchContent_MakeAvailable(dpf)
 
-# Must come AFTER FetchContent_MakeAvailable(JUCE)
-set(CLAP_JUCE_EXTENSIONS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    clap-juce-extensions
-    GIT_REPOSITORY https://github.com/free-audio/clap-juce-extensions.git
-    GIT_TAG        main
-)
-FetchContent_MakeAvailable(clap-juce-extensions)
-
-# Embed factory presets as binary data
-file(GLOB FACTORY_PRESET_FILES "Source/Presets/Factory/*.xml")
-juce_add_binary_data(Outflank_BinaryData
-    HEADER_NAME BinaryData.h
-    NAMESPACE   Outflank_BinaryData
-    SOURCES     ${FACTORY_PRESET_FILES}
-)
-
-set(OUTFLANK_FORMATS VST3 Standalone)
+set(OUTFLANK_DPF_TARGETS vst3 clap lv2)
 if(APPLE)
-    list(APPEND OUTFLANK_FORMATS AU)
+    list(APPEND OUTFLANK_DPF_TARGETS au)
 endif()
 
-juce_add_plugin(Outflank
-    COMPANY_NAME                "Spellbound"
-    PLUGIN_MANUFACTURER_CODE    Spbd
-    PLUGIN_CODE                 Otfk
-    FORMATS                     ${OUTFLANK_FORMATS}
-    PRODUCT_NAME                "Outflank"
-    BUNDLE_ID                   "com.spellbound.outflank"
-    IS_SYNTH                    FALSE
-    NEEDS_MIDI_INPUT            FALSE
-    NEEDS_MIDI_OUTPUT           FALSE
-    IS_MIDI_EFFECT              FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    DESCRIPTION                 "Mono-bass / wide-highs stereo crossover"
+dpf_add_plugin(Outflank
+    TARGETS ${OUTFLANK_DPF_TARGETS}
+    UI_TYPE opengl
+    FILES_DSP
+        Source/OutflankPluginAdapter.cpp
+        Source/DSP/CrossoverMS.cpp
+    FILES_UI
+        Source/OutflankUI.cpp
 )
 
-target_sources(Outflank PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp
-    Source/DSP/CrossoverMS.cpp
-    Source/PresetManager.cpp
-)
+target_include_directories(Outflank PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source")
 
-target_compile_definitions(Outflank PUBLIC
-    JUCE_WEB_BROWSER=0
-    JUCE_USE_CURL=0
-    JUCE_VST3_CAN_REPLACE_VST2=0
-)
-
-target_include_directories(Outflank PRIVATE Source/)
-
-target_compile_features(Outflank PUBLIC cxx_std_20)
-
-target_link_libraries(Outflank
-    PRIVATE
-        Outflank_BinaryData
-        juce::juce_audio_utils
-        juce::juce_audio_plugin_client
-        juce::juce_dsp
-        clap_juce_extensions
-    PUBLIC
-        juce::juce_recommended_config_flags
-        juce::juce_recommended_lto_flags
-        juce::juce_recommended_warning_flags
-)
-
-# Must come AFTER target_link_libraries
-clap_juce_extensions_plugin(
-    TARGET      Outflank
-    CLAP_ID     "com.spellbound.outflank"
-    CLAP_FEATURES audio-effect utility stereo
-    CLAP_PROCESS_EVENTS_RESOLUTION_SAMPLES 64
-)
+# DPF's dpf_add_plugin() unconditionally compiles dgl/src/pugl.cpp's inlined
+# WebViewImpl.cpp (a DPF bug -- see Hex's CMakeLists.txt for the full
+# explanation), which uses the GNU `typeof` extension and fails under strict
+# ISO C++ (our CMAKE_CXX_EXTENSIONS OFF default). Allow GNU extensions on
+# DPF's own dgl-opengl target rather than patching vendored DPF code.
+if(TARGET dgl-opengl)
+    set_target_properties(dgl-opengl PROPERTIES CXX_EXTENSIONS ON)
+endif()
 
 # ── Unit tests (no JUCE dependency) ──────────────────────────────────────────
+# Unchanged from the pre-migration CMakeLists.txt -- CrossoverMS/AllpassFilter/
+# QuadraturePair/StateVariableFilter never depended on JUCE, so these test
+# executables don't need any porting.
 enable_testing()
 
 add_executable(test_statevariablefilter
@@ -123,26 +103,40 @@ target_compile_features(test_quadraturepair PRIVATE cxx_std_20)
 add_test(NAME QuadraturePair COMMAND test_quadraturepair)
 
 # ── Install rules ─────────────────────────────────────────────────────────────
+# DPF's dpf_add_plugin() writes all format outputs under a flat bin/ dir --
+# no Standalone binary: Outflank is an effect, and this workspace only
+# requires Standalone for instruments (see Hex's CLAUDE.md, same rule).
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-set(_ARTS "${CMAKE_BINARY_DIR}/Outflank_artefacts/${CMAKE_BUILD_TYPE}")
+set(_BIN "${CMAKE_BINARY_DIR}/bin")
 
-install(DIRECTORY  "${_ARTS}/VST3/Outflank.vst3"
+install(DIRECTORY  "${_BIN}/Outflank.vst3"
         DESTINATION VST3
         COMPONENT   Runtime
         USE_SOURCE_PERMISSIONS)
 
-install(FILES      "${_ARTS}/CLAP/Outflank.clap"
-        DESTINATION CLAP
-        COMPONENT   Runtime
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                    GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+# CLAP is a flat shared-library file on Linux/Windows but a bundle
+# *directory* on macOS (like VST3/AU) -- see Hex's CMakeLists.txt, which hit
+# this as a real CI failure.
+if(APPLE)
+    install(DIRECTORY  "${_BIN}/Outflank.clap"
+            DESTINATION CLAP
+            COMPONENT   Runtime
+            USE_SOURCE_PERMISSIONS)
+else()
+    install(FILES      "${_BIN}/Outflank.clap"
+            DESTINATION CLAP
+            COMPONENT   Runtime
+            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                        GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+endif()
 
-install(PROGRAMS   "${_ARTS}/Standalone/Outflank"
-        DESTINATION bin
-        COMPONENT   Runtime)
+install(DIRECTORY  "${_BIN}/Outflank.lv2"
+        DESTINATION LV2
+        COMPONENT   Runtime
+        USE_SOURCE_PERMISSIONS)
 
 install(PROGRAMS   "${CMAKE_CURRENT_SOURCE_DIR}/scripts/install.sh"
                    "${CMAKE_CURRENT_SOURCE_DIR}/scripts/uninstall.sh"

@@ -17,16 +17,16 @@ echo "Uninstalling Outflank..."
 
 remove "${HOME}/.vst3/Outflank.vst3"
 remove "${HOME}/.clap/Outflank.clap"
-remove "${HOME}/.local/bin/Outflank"
+remove "${HOME}/.lv2/Outflank.lv2"
 
 if [[ $EUID -eq 0 ]]; then
     remove "/usr/lib/vst3/Outflank.vst3"
     remove "/usr/lib/clap/Outflank.clap"
-    remove "/usr/local/bin/Outflank"
+    remove "/usr/lib/lv2/Outflank.lv2"
 else
     for path in "/usr/lib/vst3/Outflank.vst3" \
                 "/usr/lib/clap/Outflank.clap" \
-                "/usr/local/bin/Outflank"; do
+                "/usr/lib/lv2/Outflank.lv2"; do
         if [[ -e "$path" ]]; then
             echo "  Skipping $path (re-run with sudo to remove)"
         fi
