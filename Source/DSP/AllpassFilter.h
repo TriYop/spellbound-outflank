@@ -38,13 +38,25 @@ public:
     float process (float input) noexcept
     {
         const float output = -a_ * input + x1_ + a_ * y1_;
-        x1_ = input;
-        y1_ = output;
+        x1_ = flushDenormal (input);
+        y1_ = flushDenormal (output);
         return output;
     }
 
 private:
     static constexpr float kPi = 3.14159265358979323846f;
+
+    // Same denormal-decay issue as StateVariableFilter::processLowpass: on
+    // silence, y1_'s feedback settles toward zero through the subnormal
+    // float range rather than snapping to it -- clap-validator's
+    // process-sleep-constant-mask test flags that as invalid output (see
+    // https://github.com/TriYop/spellbound-outflank/issues/2). Threshold
+    // matches StateVariableFilter's (~194dB below full scale).
+    static constexpr float kDenormalThreshold = 1.0e-10f;
+    static float flushDenormal (float x) noexcept
+    {
+        return (x > -kDenormalThreshold && x < kDenormalThreshold) ? 0.0f : x;
+    }
 
     float a_  = 0.0f;
     float x1_ = 0.0f;
