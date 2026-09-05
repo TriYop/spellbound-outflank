@@ -67,6 +67,47 @@ if(TARGET dgl-opengl)
     set_target_properties(dgl-opengl PROPERTIES CXX_EXTENSIONS ON)
 endif()
 
+# ── Shared HUI/DSP library ───────────────────────────────────────────────────
+# github.com/TriYop/spellbound-common is private -- local dev machines clone
+# it over the developer's own cached git/gh credentials, while CI
+# authenticates via a short-lived `git config url.insteadOf` rewrite driven
+# by the COMMON_REPO_TOKEN secret (see .github/workflows/ci.yml's "Configure
+# Common repo access" step, added below, which must run before Configure).
+#
+# ORDERING (load-bearing): this must come *after* dpf_add_plugin(Outflank
+# ...), not merely after FetchContent_MakeAvailable(dpf) -- DPF creates its
+# backend-specific DGL target (dgl-opengl) lazily from inside
+# dpf_add_plugin(), so at FetchContent_MakeAvailable(dpf) time no dgl-*
+# target exists yet. Common guards AudioPluginsCommon::hui_dgl on one of
+# those targets existing, so pulling Common in any earlier silently drops
+# hui_dgl and the link below fails.
+#
+# Common's own CMakeLists.txt builds its STATIC libraries without setting
+# POSITION_INDEPENDENT_CODE -- every one of Outflank's plugin formats
+# (VST3/CLAP/LV2) is a shared object, and DPF only sets that property TRUE
+# on the targets *it* creates. Setting CMAKE_POSITION_INDEPENDENT_CODE here,
+# before Common's add_subdirectory runs, makes it the default for every
+# target in Common (and transitively pugixml) -- without this, linking
+# AudioPluginsCommon::hui_dgl into Outflank-ui/Outflank.vst3/Outflank.clap/
+# Outflank.lv2 fails at link time.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+FetchContent_Declare(AudioPluginsCommon
+    GIT_REPOSITORY https://github.com/TriYop/spellbound-common.git
+    GIT_TAG        v0.2.2
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(AudioPluginsCommon)
+
+# Linked into `Outflank-ui` rather than `Outflank`: dpf_add_plugin() splits
+# the plugin into a common `Outflank` static lib plus `Outflank-dsp` /
+# `Outflank-ui` static libs, and OutflankUI.cpp (the only consumer of the
+# widget) lives in `Outflank-ui`. Linking it into `Outflank` PRIVATE would
+# keep hui_dgl's include directories away from Outflank-ui's own compile,
+# and linking it PUBLIC there would drag a GL/UI library into the DSP-only
+# LV2 binary as well.
+target_link_libraries(Outflank-ui PRIVATE AudioPluginsCommon::hui_dgl)
+
 # ── Unit tests (no JUCE dependency) ──────────────────────────────────────────
 # Unchanged from the pre-migration CMakeLists.txt -- CrossoverMS/AllpassFilter/
 # QuadraturePair/StateVariableFilter never depended on JUCE, so these test
