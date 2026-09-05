@@ -40,4 +40,31 @@
 #define DISTRHO_UI_DEFAULT_WIDTH  320
 #define DISTRHO_UI_DEFAULT_HEIGHT 200
 
+/*
+ * Host parameter indices, shared between the DSP adapter and the UI.
+ * Declared here (rather than in OutflankPluginAdapter.h) so the UI
+ * translation unit can use them without pulling in DistrhoPlugin.hpp --
+ * same placement Hex's DistrhoPluginInfo.h uses.
+ */
+enum OutflankParameters {
+    kParameterFrequency = 0,
+    kParameterQ,
+    kParameterRejection,
+    kParameterCount   // 3 -- no bypass, no meters, on any format
+};
+
+/* Ranges/defaults carried over verbatim from the JUCE-era
+   Source/_juce_reference/PluginProcessor.cpp createParameterLayout(). */
+#define OUTFLANK_PARAM_FREQUENCY_MIN     40.0f
+#define OUTFLANK_PARAM_FREQUENCY_MAX     2000.0f
+#define OUTFLANK_PARAM_FREQUENCY_DEFAULT 250.0f
+
+#define OUTFLANK_PARAM_Q_MIN     0.3f
+#define OUTFLANK_PARAM_Q_MAX     4.0f
+#define OUTFLANK_PARAM_Q_DEFAULT 0.707f
+
+#define OUTFLANK_PARAM_REJECTION_MIN     0.0f
+#define OUTFLANK_PARAM_REJECTION_MAX     100.0f
+#define OUTFLANK_PARAM_REJECTION_DEFAULT 0.0f
+
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED
