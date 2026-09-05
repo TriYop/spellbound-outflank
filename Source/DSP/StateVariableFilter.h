@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 
 // Zavalishin topology-preserving 2-pole state-variable filter — resonant lowpass
@@ -18,7 +19,19 @@ public:
 
     void setParameters (float frequencyHz, float q, double sampleRate) noexcept
     {
-        const float g = std::tan (kPi * frequencyHz / static_cast<float> (sampleRate));
+        // Same Nyquist clamp as AllpassFilter::setParameters, applied here
+        // defensively: this filter's a1_ = 1/(1 + g*(g+k)) has its own real
+        // pole (1 + g*(g+k) == 0) for low-Q values once g is pushed past
+        // Nyquist and wraps through tan()'s periodicity, the same
+        // structural issue clap-validator caught in AllpassFilter (see
+        // https://github.com/TriYop/spellbound-outflank/issues/1). Not
+        // observed to fail with this plugin's default Q of 0.707 (no real
+        // solution to that pole at that Q), but the fix is applied
+        // symmetrically since both filters share the identical unguarded
+        // tan() prewarp pattern.
+        const float sampleRateF = static_cast<float> (sampleRate);
+        const float safeFrequencyHz = std::min (frequencyHz, 0.499f * sampleRateF);
+        const float g = std::tan (kPi * safeFrequencyHz / sampleRateF);
         const float k = 1.0f / q;
         a1_ = 1.0f / (1.0f + g * (g + k));
         a2_ = g * a1_;
