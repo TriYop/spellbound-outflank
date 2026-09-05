@@ -20,15 +20,24 @@ public:
 
     void setParameters (float frequencyHz, double sampleRate) noexcept
     {
-        // Clamp to just under Nyquist before prewarping. Without this, a
-        // corner frequency at or beyond the current sample rate's Nyquist
-        // wraps through tan()'s pi-periodicity and can land exactly on this
-        // filter's a_ = (1-g)/(1+g) pole (g == -1, i.e. frequencyHz/sampleRate
-        // landing on 0.75 mod 1) -- e.g. QuadraturePair's fixed 22kHz corner
-        // at an 8kHz sample rate gives ratio 2.75, g = tan(2.75*pi) == -1.0
-        // exactly, dividing by zero. Caught by clap-validator's
+        // Clamp to just under Nyquist before prewarping. This filter's pole
+        // is at z = a_ = (1-g)/(1+g); stability requires |a_| < 1, which
+        // holds iff g > 0, iff frequencyHz < Nyquist. The prewarp is only
+        // valid below Nyquist in the first place -- ANY corner frequency at
+        // or beyond the current sample rate's Nyquist wraps through tan()'s
+        // pi-periodicity into g < 0, putting the pole at |a_| > 1 and making
+        // the filter diverge (not just a single exact-boundary case: at an
+        // 8kHz sample rate, 3 of QuadraturePair's 6 corners per chain are
+        // unstable this way, not only the one that happens to be the
+        // clearest example below). In float32 this isn't a literal division
+        // by zero either -- e.g. at frequencyHz=22000/sampleRate=8000,
+        // measured via the exact recurrence, g = -1.0000006 and
+        // 1+g = -5.96e-07 (not exactly 0), giving a_ = -3.36e6 and the
+        // filter reaching +-inf within ~6 samples through the IIR feedback,
+        // not on the very first sample. Caught by clap-validator's
         // process-varying-sample-rates test; see
         // https://github.com/TriYop/spellbound-outflank/issues/1.
+        // Regression-tested in Tests/test_quadraturepair.cpp.
         const float sampleRateF = static_cast<float> (sampleRate);
         const float safeFrequencyHz = std::min (frequencyHz, 0.499f * sampleRateF);
         const float g = std::tan (kPi * safeFrequencyHz / sampleRateF);
