@@ -26,6 +26,7 @@ protected:
     const char* getDescription() const override;
     const char* getMaker() const override;
     const char* getLicense() const override;
+    const char* getHomePage() const override;
     uint32_t getVersion() const override;
 
     // -- Init -------------------------------------------------------------
