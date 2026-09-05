@@ -43,13 +43,28 @@ public:
         const float v3 = input - ic2eq_;
         const float v1 = a1_ * ic1eq_ + a2_ * v3;
         const float v2 = ic2eq_ + a2_ * ic1eq_ + a3_ * v3;
-        ic1eq_ = 2.0f * v1 - ic1eq_;
-        ic2eq_ = 2.0f * v2 - ic2eq_;
+        ic1eq_ = flushDenormal (2.0f * v1 - ic1eq_);
+        ic2eq_ = flushDenormal (2.0f * v2 - ic2eq_);
         return v2;
     }
 
 private:
     static constexpr float kPi = 3.14159265358979323846f;
+
+    // On silence (or any decaying signal), this filter's feedback state
+    // (ic1eq_/ic2eq_) asymptotically approaches zero and passes through the
+    // subnormal float range on the way -- clap-validator's
+    // process-sleep-constant-mask test flags that as invalid output (see
+    // https://github.com/TriYop/spellbound-outflank/issues/2). There is no
+    // per-plugin-instance way to force the CPU's flush-to-zero mode in a
+    // DPF plugin, so flush explicitly here instead: values below this
+    // threshold are ~194dB below full scale, far beneath anything audible
+    // or numerically meaningful for this filter.
+    static constexpr float kDenormalThreshold = 1.0e-10f;
+    static float flushDenormal (float x) noexcept
+    {
+        return (x > -kDenormalThreshold && x < kDenormalThreshold) ? 0.0f : x;
+    }
 
     float a1_ = 0.0f, a2_ = 0.0f, a3_ = 0.0f;
     float ic1eq_ = 0.0f, ic2eq_ = 0.0f;
