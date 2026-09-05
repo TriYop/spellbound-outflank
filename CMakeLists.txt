@@ -102,6 +102,13 @@ target_include_directories(test_quadraturepair PRIVATE Source/ Tests/)
 target_compile_features(test_quadraturepair PRIVATE cxx_std_20)
 add_test(NAME QuadraturePair COMMAND test_quadraturepair)
 
+add_executable(test_outflank_parameters
+    Tests/test_outflank_parameters.cpp
+)
+target_include_directories(test_outflank_parameters PRIVATE Source/ Tests/)
+target_compile_features(test_outflank_parameters PRIVATE cxx_std_20)
+add_test(NAME OutflankParameters COMMAND test_outflank_parameters)
+
 # ── Install rules ─────────────────────────────────────────────────────────────
 # DPF's dpf_add_plugin() writes all format outputs under a flat bin/ dir --
 # no Standalone binary: Outflank is an effect, and this workspace only
