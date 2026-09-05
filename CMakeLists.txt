@@ -49,6 +49,7 @@ endif()
 dpf_add_plugin(Outflank
     TARGETS ${OUTFLANK_DPF_TARGETS}
     UI_TYPE opengl
+    USE_FILE_BROWSER TRUE
     FILES_DSP
         Source/OutflankPluginAdapter.cpp
         Source/DSP/CrossoverMS.cpp
@@ -106,7 +107,7 @@ FetchContent_MakeAvailable(AudioPluginsCommon)
 # keep hui_dgl's include directories away from Outflank-ui's own compile,
 # and linking it PUBLIC there would drag a GL/UI library into the DSP-only
 # LV2 binary as well.
-target_link_libraries(Outflank-ui PRIVATE AudioPluginsCommon::hui_dgl)
+target_link_libraries(Outflank-ui PRIVATE AudioPluginsCommon::hui_dgl AudioPluginsCommon::presets)
 
 # ── Unit tests (no JUCE dependency) ──────────────────────────────────────────
 # Unchanged from the pre-migration CMakeLists.txt -- CrossoverMS/AllpassFilter/
@@ -149,6 +150,14 @@ add_executable(test_outflank_parameters
 target_include_directories(test_outflank_parameters PRIVATE Source/ Tests/)
 target_compile_features(test_outflank_parameters PRIVATE cxx_std_20)
 add_test(NAME OutflankParameters COMMAND test_outflank_parameters)
+
+add_executable(test_outflank_factorypresets
+    Tests/test_outflank_factorypresets.cpp
+)
+target_include_directories(test_outflank_factorypresets PRIVATE Source/ Tests/)
+target_link_libraries(test_outflank_factorypresets PRIVATE AudioPluginsCommon::presets)
+target_compile_features(test_outflank_factorypresets PRIVATE cxx_std_20)
+add_test(NAME OutflankFactoryPresets COMMAND test_outflank_factorypresets)
 
 # ── Install rules ─────────────────────────────────────────────────────────────
 # DPF's dpf_add_plugin() writes all format outputs under a flat bin/ dir --

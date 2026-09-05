@@ -39,6 +39,7 @@
 #define DISTRHO_UI_USER_RESIZABLE 0
 #define DISTRHO_UI_DEFAULT_WIDTH  320
 #define DISTRHO_UI_DEFAULT_HEIGHT 200
+#define DISTRHO_UI_FILE_BROWSER   1
 
 /*
  * Host parameter indices, shared between the DSP adapter and the UI.
