@@ -19,6 +19,15 @@ const char* OutflankPluginAdapter::getLicense() const
     return "https://spellbound.audio/plugins/outflank#license";
 }
 
+const char* OutflankPluginAdapter::getHomePage() const
+{
+    // DPF's LV2 TTL export (DistrhoPluginLV2export.cpp) only emits
+    // foaf:homepage when this is non-empty; left unset, lv2lint flags a
+    // "Plugin Author Homepage" WARN. See
+    // https://github.com/TriYop/spellbound-outflank/issues/3.
+    return "https://spellbound.audio/plugins/outflank";
+}
+
 uint32_t OutflankPluginAdapter::getVersion() const
 {
     return d_version(1, 0, 0);
