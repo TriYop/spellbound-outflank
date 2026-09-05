@@ -36,6 +36,13 @@ jobs:
             libglu1-mesa-dev libwebkit2gtk-4.1-dev \
             xvfb
 
+      - name: Configure Common repo access
+        # github.com/TriYop/spellbound-common (FetchContent'd below) is
+        # private -- actions/checkout's token doesn't extend to other repos,
+        # so rewrite just that one clone URL to embed a read-only,
+        # contents-only fine-grained PAT scoped to spellbound-common only.
+        run: git config --global url."https://x-access-token:${{ secrets.COMMON_REPO_TOKEN }}@github.com/TriYop/spellbound-common".insteadOf "https://github.com/TriYop/spellbound-common"
+
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
