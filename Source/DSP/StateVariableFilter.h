@@ -19,16 +19,23 @@ public:
 
     void setParameters (float frequencyHz, float q, double sampleRate) noexcept
     {
-        // Same Nyquist clamp as AllpassFilter::setParameters, applied here
-        // defensively: this filter's a1_ = 1/(1 + g*(g+k)) has its own real
-        // pole (1 + g*(g+k) == 0) for low-Q values once g is pushed past
-        // Nyquist and wraps through tan()'s periodicity, the same
-        // structural issue clap-validator caught in AllpassFilter (see
-        // https://github.com/TriYop/spellbound-outflank/issues/1). Not
-        // observed to fail with this plugin's default Q of 0.707 (no real
-        // solution to that pole at that Q), but the fix is applied
-        // symmetrically since both filters share the identical unguarded
-        // tan() prewarp pattern.
+        // Same Nyquist clamp as AllpassFilter::setParameters -- and, for
+        // this filter, a REAL, REACHABLE bug given the plugin's own shipped
+        // parameter range, not merely a defensive/theoretical guard. This
+        // filter's a1_ = 1/(1 + g*(g+k)) has real roots (1 + g*(g+k) == 0)
+        // whenever k = 1/Q >= 2, i.e. Q <= 0.5 -- and OUTFLANK_PARAM_Q_MIN
+        // is 0.3. Once an unclamped-past-Nyquist frequency/sampleRate ratio
+        // pushes g negative, that root becomes reachable: at the shipped
+        // Q_MIN (0.3) and FREQUENCY_MAX (2000Hz), measured via the exact
+        // float32 recurrence, a1_ blows up to ~1302 at sampleRate=2228Hz and
+        // ~1776 at sampleRate=3320Hz. Not observed to fail with this
+        // plugin's DEFAULT Q of 0.707 (no real root at that Q, since
+        // k=1/0.707 < 2) -- which is why clap-validator's default-parameter
+        // sweep caught AllpassFilter's identical-pattern bug (see
+        // https://github.com/TriYop/spellbound-outflank/issues/1) but not
+        // this one -- but the fix applies equally once a low-Q/extreme-
+        // sample-rate combination is reachable, which it is here.
+        // Regression-tested in Tests/test_statevariablefilter.cpp.
         const float sampleRateF = static_cast<float> (sampleRate);
         const float safeFrequencyHz = std::min (frequencyHz, 0.499f * sampleRateF);
         const float g = std::tan (kPi * safeFrequencyHz / sampleRateF);
@@ -55,11 +62,16 @@ private:
     // (ic1eq_/ic2eq_) asymptotically approaches zero and passes through the
     // subnormal float range on the way -- clap-validator's
     // process-sleep-constant-mask test flags that as invalid output (see
-    // https://github.com/TriYop/spellbound-outflank/issues/2). There is no
-    // per-plugin-instance way to force the CPU's flush-to-zero mode in a
-    // DPF plugin, so flush explicitly here instead: values below this
-    // threshold are ~194dB below full scale, far beneath anything audible
-    // or numerically meaningful for this filter.
+    // https://github.com/TriYop/spellbound-outflank/issues/2). A CPU-level
+    // flush-to-zero/denormals-are-zero mode (_MM_SET_FLUSH_ZERO_MODE /
+    // _MM_SET_DENORMALS_ZERO_MODE on x86, FPCR bits on aarch64) IS available
+    // and would be another way to solve this, independent of DPF -- but
+    // this codebase deliberately uses the portable, per-state explicit-flush
+    // pattern below instead, to avoid adding platform-specific
+    // (x86-vs-aarch64) intrinsics across this plugin's 3-OS (Linux/Windows/
+    // macOS) CI matrix for what a fixed-threshold flush already solves.
+    // Values below this threshold are ~194dB below full scale, far beneath
+    // anything audible or numerically meaningful for this filter.
     static constexpr float kDenormalThreshold = 1.0e-10f;
     static float flushDenormal (float x) noexcept
     {

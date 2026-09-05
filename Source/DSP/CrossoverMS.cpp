@@ -41,7 +41,7 @@ void CrossoverMS::process (float* left, float* right, int numSamples,
 
         const auto quad = quadratureM_.process (mHigh);
 
-        smoothedRejection_ += (rejection01 - smoothedRejection_) * smoothCoeff;
+        smoothedRejection_ = flushDenormal (smoothedRejection_ + (rejection01 - smoothedRejection_) * smoothCoeff);
 
         const float mHighKept  = (1.0f - smoothedRejection_) * quad.a;
         const float mHighMoved = smoothedRejection_ * quad.b;
