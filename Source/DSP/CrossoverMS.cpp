@@ -15,6 +15,13 @@ void CrossoverMS::process (float* left, float* right, int numSamples,
                             float frequencyHz, float q, float rejection01,
                             double sampleRate) noexcept
 {
+    // Deliberately does not compare sampleRate here: this is only safe because
+    // OutflankPluginAdapter::activate() calls reset() (which resets
+    // lastFrequencyHz_ to -1.0f) before every sample-rate change a host can
+    // make -- hosts must deactivate before changing sample rate. If that
+    // reset() call is ever removed, this staleness check must gain a
+    // sampleRate comparison too, or a sample-rate change with an unchanged
+    // frequency/Q will silently keep stale, mistuned coefficients.
     if (frequencyHz != lastFrequencyHz_ || q != lastQ_)
     {
         svfM_.setParameters (frequencyHz, q, sampleRate);

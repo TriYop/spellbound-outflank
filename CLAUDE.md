@@ -183,8 +183,10 @@ issues, per `gh issue list --repo TriYop/spellbound-outflank --state closed`:
   Fixed via an explicit per-state denormal flush (`flushDenormal()`)
   applied to `StateVariableFilter`, `AllpassFilter`, and — in a follow-up
   fix after the first pass missed one call site — `CrossoverMS`'s
-  `smoothedRejection_` rejection smoother (commits `7fe17dd` and `ccf9886`;
-  regression tests in `af1695f`).
+  `smoothedRejection_` rejection smoother (commits `7fe17dd` and `ccf9886`).
+  Regression tests for the first two sites were added in `af1695f`, which
+  precedes `ccf9886` and so does not cover it; `CrossoverMS`'s own
+  regression test was added later, in commit `ef3eec8`.
 - **#3 — lv2lint "Plugin Author Homepage" WARN**: `OutflankPluginAdapter`
   never overrode `getHomePage()`. Fixed by overriding it (commit `7f0c14e`).
 - **#5 — lv2lint "Plugin Author Email" WARN**: filed and closed immediately

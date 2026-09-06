@@ -1,2 +1,8 @@
 build/
 build-*/
+
+# Validator tools downloaded locally into the repo root by Task-5-style
+# validator runs (pluginval, clap-validator) -- not part of the repo.
+/pluginval
+/pluginval_Linux.zip
+/clap-validator*
