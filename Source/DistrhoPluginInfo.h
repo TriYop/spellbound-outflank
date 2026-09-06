@@ -2,8 +2,7 @@
  * Spellbound Outflank — DPF plugin metadata.
  *
  * This file's macro set follows DPF's own DistrhoPluginInfo.h.template
- * and the shape of Hex's DistrhoPluginInfo.h (see
- * AudioPlugins/Hex/.claude/worktrees/dpf-stage0/Source/DistrhoPluginInfo.h).
+ * and the shape of Hex's `Source/DistrhoPluginInfo.h`.
  *
  * Outflank is a stereo effect, not a synth: it does not want MIDI input,
  * and it processes two audio inputs into two audio outputs. Unlike Hex, it

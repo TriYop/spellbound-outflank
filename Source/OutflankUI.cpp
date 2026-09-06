@@ -236,13 +236,19 @@ void OutflankUI::applyPreset(const audioplugins::common::presets::Preset& preset
     {
         uint32_t paramIndex;
 
-        if (pv.id == "frequency")      { fFrequencyKnob->setValue(pv.value); paramIndex = kParameterFrequency; }
-        else if (pv.id == "q")         { fQKnob->setValue(pv.value);         paramIndex = kParameterQ; }
-        else if (pv.id == "rejection") { fRejectionKnob->setValue(pv.value); paramIndex = kParameterRejection; }
+        float clampedValue;
+
+        if (pv.id == "frequency")      { fFrequencyKnob->setValue(pv.value); paramIndex = kParameterFrequency; clampedValue = fFrequencyKnob->getValue(); }
+        else if (pv.id == "q")         { fQKnob->setValue(pv.value);         paramIndex = kParameterQ;         clampedValue = fQKnob->getValue(); }
+        else if (pv.id == "rejection") { fRejectionKnob->setValue(pv.value); paramIndex = kParameterRejection; clampedValue = fRejectionKnob->getValue(); }
         else continue; // unknown id (forward-compatible with a future schema addition) -- ignore
 
         editParameter(paramIndex, true);
-        setParameterValue(paramIndex, pv.value);
+        // Use the knob's own (clamped) value, not the raw preset value: a
+        // hand-edited or malformed preset XML could carry an out-of-range
+        // value, which would otherwise desync the on-screen knob (clamped
+        // by setValue() above) from the host parameter (left unclamped).
+        setParameterValue(paramIndex, clampedValue);
         editParameter(paramIndex, false);
     }
 }

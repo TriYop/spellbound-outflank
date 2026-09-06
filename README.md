@@ -47,12 +47,14 @@ discards Mid energy when widening, so gain isn't sacrificed for width.
 
 ## Status
 
-Implemented — JUCE-based VST3/CLAP/Standalone effect plugin. See `Source/` for
-the processor/editor and `Source/DSP/` for the crossover, filter, and
-quadrature all-pass DSP; `Tests/` holds the JUCE-free unit tests (CTest).
+Implemented — migrated to [DPF](https://github.com/DISTRHO/DPF), building
+VST3/CLAP/LV2 (+AU on macOS). No Standalone target: Outflank is an effect,
+and this workspace only requires Standalone for instruments. See `Source/`
+for the processor/editor and `Source/DSP/` for the crossover, filter, and
+quadrature all-pass DSP; `Tests/` holds the framework-free unit tests (CTest).
 
 ```bash
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build --parallel
-./build/Outflank_artefacts/Debug/Standalone/Outflank
+# Outputs: build/bin/Outflank.vst3, build/bin/Outflank.clap, build/bin/Outflank.lv2
 ```
