@@ -206,6 +206,54 @@ int main()
         }
     }
 
+    // Regression test for the denormal-flush fix applied to CrossoverMS's own
+    // smoothedRejection_ one-pole smoother -- the third site for issue #2,
+    // fixed in a follow-up commit after StateVariableFilter and AllpassFilter
+    // (see CLAUDE.md's "CI / validator status" section). Mono input keeps
+    // Side at 0 identically throughout (s = 0.5*(l-r) = 0 whenever l == r),
+    // so svfS_ never receives excitation and sHigh stays exactly 0 for the
+    // whole test -- meaning left[i]-right[i] == 2*sOut == 2*mHighMoved ==
+    // 2*smoothedRejection_*quad.b at every silent-phase sample, isolating
+    // smoothedRejection_'s residual as the only thing that can make this
+    // nonzero.
+    //
+    // Build up smoothedRejection_ toward 0.5 with real above-crossover
+    // content (this also excites quad.b's own all-pass state), then switch
+    // to rejection=0 and silence for 6000 samples. Measured against the real
+    // float32 recurrence: smoothedRejection_'s own ~5ms one-pole time
+    // constant decays past the 1e-10 flush threshold at ~5350 samples in,
+    // while quad.b (chain B's cascade, dominated by its slowest, 20Hz,
+    // all-pass corner) does not decay past its own flush threshold until
+    // ~6600 samples in -- so at sample 6000, quad.b is still a legitimate
+    // nonzero value (~6e-9), isolating smoothedRejection_ as the only
+    // possible source of a residual in the difference. Without the flush,
+    // smoothedRejection_ is ~7e-12 at that point (still an ordinary,
+    // non-subnormal float -- never explicitly zeroed, just left decaying),
+    // which multiplied by quad.b's ~6e-9 gives a tiny but genuinely nonzero
+    // left-right difference (~6.6e-21, confirmed against this exact
+    // reverted-fix build); with the flush, smoothedRejection_ is bit-exact
+    // 0.0f well before sample 6000, so the difference must be bit-exact
+    // 0.0f too.
+    {
+        CrossoverMS x;
+        const int nBuildUp = 4800;
+        const int nSilence = 6000;
+        std::vector<float> left (nBuildUp), right (nBuildUp);
+        for (int i = 0; i < nBuildUp; ++i)
+        {
+            const float s = static_cast<float> (std::sin (2.0 * kPi * 2000.0 * i / kSampleRate));
+            left[i] = s; right[i] = s;
+        }
+        x.process (left.data(), right.data(), nBuildUp, 250.f, 0.707f, 0.5f, kSampleRate);
+
+        std::vector<float> silentLeft (nSilence, 0.f), silentRight (nSilence, 0.f);
+        x.process (silentLeft.data(), silentRight.data(), nSilence, 250.f, 0.707f, 0.f, kSampleRate);
+
+        const float diff = silentLeft.back() - silentRight.back();
+        CHECK_MSG (diff == 0.0f,
+                   "CrossoverMS's smoothedRejection_ should reach exactly 0.0f after enough silence (denormal flush engaged), leaving left == right");
+    }
+
     TEST_SUMMARY();
     return 0;
 }
